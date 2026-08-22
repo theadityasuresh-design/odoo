@@ -6,7 +6,7 @@ export async function checkIn(): Promise<{ timestamp: string }> {
   if (import.meta.env.VITE_USE_MOCKS === 'true') {
     return getMockResponse('/attendance/check-in', 'POST');
   }
-  const { data } = await client.post('/attendance/check-in');
+  const { data } = await client.post("/attendance/check-in", { timestamp: new Date().toISOString() });
   return data;
 }
 
@@ -14,7 +14,7 @@ export async function checkOut(): Promise<{ timestamp: string }> {
   if (import.meta.env.VITE_USE_MOCKS === 'true') {
     return getMockResponse('/attendance/check-out', 'POST');
   }
-  const { data } = await client.post('/attendance/check-out');
+  const { data } = await client.post("/attendance/check-out", { timestamp: new Date().toISOString() });
   return data;
 }
 
@@ -33,3 +33,4 @@ export async function getAllAttendance(): Promise<{ records: AttendanceRecord[] 
   const { data } = await client.get('/attendance');
   return data;
 }
+

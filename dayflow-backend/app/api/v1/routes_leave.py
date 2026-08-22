@@ -12,11 +12,11 @@ from app.services.leave_service import LeaveService
 router = APIRouter()
 
 @router.post("", response_model=LeaveResponse)
-async def request_leave(request: LeaveCreate, current_user: User = Depends(require_role("employee")), db: AsyncSession = Depends(get_db)):
+async def request_leave(request: LeaveCreate, current_user: User = Depends(require_role("employee", "admin")), db: AsyncSession = Depends(get_db)):
     return await LeaveService.create_request(db, current_user, request)
 
 @router.get("/me", response_model=LeaveListResponse)
-async def my_leaves(current_user: User = Depends(require_role("employee")), db: AsyncSession = Depends(get_db)):
+async def my_leaves(current_user: User = Depends(require_role("employee", "admin")), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(LeaveRequest).where(LeaveRequest.user_id == current_user.id))
     return {"requests": result.scalars().all()}
 

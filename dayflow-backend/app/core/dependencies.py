@@ -2,6 +2,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from app.db.session import get_db
 from app.core.config import settings
 from app.models.user import User
@@ -23,14 +24,15 @@ async def get_current_user(db: AsyncSession = Depends(get_db), token: str = Depe
     except JWTError:
         raise credentials_exception
 
-    user = await db.get(User, uuid.UUID(user_id))
+    user = await db.get(User, uuid.UUID(user_id), options=[selectinload(User.profile)])
     if user is None:
         raise credentials_exception
     return user
 
-def require_role(role: str):
+def require_role(*roles: str):
+    allowed_roles = set(roles)
     async def role_checker(current_user: User = Depends(get_current_user)):
-        if current_user.role != role:
+        if current_user.role not in allowed_roles:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
         return current_user
     return role_checker

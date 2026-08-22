@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from jose import jwt, JWTError
 from app.db.session import get_db
 from app.schemas.auth import SignupRequest, LoginRequest, TokenResponse, RefreshRequest, MessageResponse
 from app.services.auth_service import AuthService
 from app.core.security import create_access_token
+from app.core.config import settings
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -25,8 +27,19 @@ async def login(request: Request, login_data: LoginRequest, db: AsyncSession = D
 
 @router.post("/refresh")
 async def refresh_token(request: RefreshRequest):
-    # Simplistic implementation for the assessment
-    return {"access_token": create_access_token(subject="refreshed")}
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or expired refresh token",
+    )
+    try:
+        payload = jwt.decode(request.refresh_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id = payload.get("sub")
+        if user_id is None or payload.get("type") != "refresh":
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+
+    return {"access_token": create_access_token(subject=user_id)}
 
 @router.post("/logout", response_model=MessageResponse)
 async def logout():

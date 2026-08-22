@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 from app.db.session import get_db
 from app.models.user import User
 from app.models.employee_profile import EmployeeProfile
@@ -24,13 +25,13 @@ async def update_me(update_data: EmployeeProfileUpdate, current_user: User = Dep
         setattr(current_user.profile, key, value)
         
     await db.commit()
-    await db.refresh(current_user)
+    await db.refresh(current_user, attribute_names=["profile"])
     return current_user
 
 @router.get("", response_model=PaginatedUsersResponse, dependencies=[Depends(require_role("admin"))])
 async def list_users(page: int = 1, page_size: int = 10, db: AsyncSession = Depends(get_db)):
     offset = (page - 1) * page_size
-    query = select(User).limit(page_size).offset(offset)
+    query = select(User).options(selectinload(User.profile)).limit(page_size).offset(offset)
     result = await db.execute(query)
     users = result.scalars().all()
     
@@ -41,14 +42,14 @@ async def list_users(page: int = 1, page_size: int = 10, db: AsyncSession = Depe
 
 @router.get("/{id}", response_model=UserResponse, dependencies=[Depends(require_role("admin"))])
 async def get_user(id: str, db: AsyncSession = Depends(get_db)):
-    user = await db.get(User, id)
+    user = await db.get(User, id, options=[selectinload(User.profile)])
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
 @router.patch("/{id}", response_model=UserResponse, dependencies=[Depends(require_role("admin"))])
 async def update_user(id: str, update_data: EmployeeProfileUpdate, db: AsyncSession = Depends(get_db)):
-    user = await db.get(User, id)
+    user = await db.get(User, id, options=[selectinload(User.profile)])
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     if not user.profile:
@@ -57,5 +58,5 @@ async def update_user(id: str, update_data: EmployeeProfileUpdate, db: AsyncSess
     for key, value in update_data.model_dump(exclude_unset=True).items():
         setattr(user.profile, key, value)
     await db.commit()
-    await db.refresh(user)
+    await db.refresh(user, attribute_names=["profile"])
     return user
